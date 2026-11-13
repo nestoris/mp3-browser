@@ -3,7 +3,7 @@ A replica of a 2000s program MP3-Explorer for Windows.
 
 Written on GJS. In development...
 
-Developed in [Russian](../mp3-browser-rus), some strings can be untranslated.
+Developed in [Russian](https://github.com/nestoris/mp3-browser-rus), some strings can be untranslated.
 
 Screenshot:
 
