@@ -205,7 +205,7 @@ try {
 } catch (e) {}
 if (cliRootIndex >= 0) winConfig.collection = cliRootIndex;
 
-const FILE_COLS = ['Имя', 'File', 'Путь', '№', 'Дата', 'Жанр', 'Исполнитель', 'Альбом'];
+const FILE_COLS = ['Name', 'File', 'Path', '№', 'Date', 'Genre', 'Artist', 'Album'];
 const TC_NAME = 0, TC_PATH = 1;
 
 /* ============================================================
@@ -380,8 +380,8 @@ playlistsBox.pack_start(playlistScroll, true, true, 0);
 
 const plBtnBox = new Gtk.Box({ orientation: Gtk.Orientation.HORIZONTAL, spacing: 2 });
 plBtnBox.set_margin_start(2); plBtnBox.set_margin_end(2); plBtnBox.set_margin_top(2); plBtnBox.set_margin_bottom(2);
-const btnAdd = new Gtk.Button({ label: '+', tooltip_text: 'Добавить' }); const btnDel = new Gtk.Button({ label: '−', tooltip_text: 'Удалить' });
-const btnUp = new Gtk.Button({ label: '▲', tooltip_text: 'Вверх' }); const btnDown = new Gtk.Button({ label: '▼', tooltip_text: 'Вниз' });
+const btnAdd = new Gtk.Button({ label: '+', tooltip_text: 'Add' }); const btnDel = new Gtk.Button({ label: '−', tooltip_text: 'Remove' });
+const btnUp = new Gtk.Button({ label: '▲', tooltip_text: 'Up' }); const btnDown = new Gtk.Button({ label: '▼', tooltip_text: 'Down' });
 for (const b of [btnAdd, btnDel, btnUp, btnDown]) plBtnBox.pack_start(b, true, true, 0);
 playlistsBox.pack_start(plBtnBox, false, false, 0); bottomPaned.pack1(playlistsBox, false, false);
 
@@ -401,7 +401,7 @@ playlistToolbar.set_margin_start(2); playlistToolbar.set_margin_end(2); playlist
 const btnPlPlay = new Gtk.Button({ relief: Gtk.ReliefStyle.NONE, tooltip_text: 'Play selected' }); btnPlPlay.add(new Gtk.Image({ icon_name: 'media-playback-start', icon_size: Gtk.IconSize.BUTTON }));
 const btnPlEnq = new Gtk.Button({ relief: Gtk.ReliefStyle.NONE, tooltip_text: 'Add to queue' }); btnPlEnq.add(new Gtk.Image({ icon_name: 'media-playlist-append', icon_size: Gtk.IconSize.BUTTON }));
 const btnPlAdd = new Gtk.Button({ relief: Gtk.ReliefStyle.NONE, tooltip_text: 'Add to playlist' }); btnPlAdd.add(new Gtk.Image({ icon_name: 'list-add', icon_size: Gtk.IconSize.BUTTON }));
-const btnPlDel = new Gtk.Button({ relief: Gtk.ReliefStyle.NONE, tooltip_text: 'Удалить из плейлиста' }); btnPlDel.add(new Gtk.Image({ icon_name: 'list-remove', icon_size: Gtk.IconSize.BUTTON }));
+const btnPlDel = new Gtk.Button({ relief: Gtk.ReliefStyle.NONE, tooltip_text: 'Remove from playlist' }); btnPlDel.add(new Gtk.Image({ icon_name: 'list-remove', icon_size: Gtk.IconSize.BUTTON }));
 for (const b of [btnPlPlay, btnPlEnq, btnPlAdd, btnPlDel]) playlistToolbar.pack_start(b, false, false, 0);
 
 const playlistContentScroll = new Gtk.ScrolledWindow(); playlistContentScroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC); playlistContentScroll.add(playlistContentTree);
@@ -1140,10 +1140,10 @@ fileListTree.connect('button-press-event', (w, event) => {
     const tracks = getSelectedTracks(w, fileListStore);
     if (tracks.length === 0) return false;
     const menu = new Gtk.Menu();
-    const miPlay = new Gtk.MenuItem({ label: tracks.length > 1 ? `Play selected (${tracks.length})` : 'Проиграть' }); miPlay.connect('activate', () => playTracks(tracks, false)); menu.append(miPlay);
-    const miEnq = new Gtk.MenuItem({ label: tracks.length > 1 ? `Add to queue выделенные (${tracks.length})` : 'Add to queue' }); miEnq.connect('activate', () => playTracks(tracks, true)); menu.append(miEnq);
+    const miPlay = new Gtk.MenuItem({ label: tracks.length > 1 ? `Play selected (${tracks.length})` : 'Play' }); miPlay.connect('activate', () => playTracks(tracks, false)); menu.append(miPlay);
+    const miEnq = new Gtk.MenuItem({ label: tracks.length > 1 ? `Add selected items to the queue (${tracks.length})` : 'Add to queue' }); miEnq.connect('activate', () => playTracks(tracks, true)); menu.append(miEnq);
     menu.append(new Gtk.SeparatorMenuItem());
-    const miAdd = new Gtk.MenuItem({ label: tracks.length > 1 ? `Добавить выделенные в плейлист (${tracks.length})` : 'Add to playlist' }); miAdd.set_submenu(buildAddToPlaylistSubmenu(tracks)); menu.append(miAdd);
+    const miAdd = new Gtk.MenuItem({ label: tracks.length > 1 ? `Add selected items to the playlist (${tracks.length})` : 'Add to playlist' }); miAdd.set_submenu(buildAddToPlaylistSubmenu(tracks)); menu.append(miAdd);
     popupMenuAtPointer(menu); return true;
 });
 
@@ -1156,12 +1156,12 @@ playlistContentTree.connect('button-press-event', (w, event) => {
     const tracks = getSelectedTracks(w, playlistContentStore);
     if (tracks.length === 0) return false;
     const menu = new Gtk.Menu();
-    const miPlay = new Gtk.MenuItem({ label: tracks.length > 1 ? `Play selected (${tracks.length})` : 'Проиграть' }); miPlay.connect('activate', () => playTracks(tracks, false)); menu.append(miPlay);
-    const miEnq = new Gtk.MenuItem({ label: tracks.length > 1 ? `Add to queue выделенные (${tracks.length})` : 'Add to queue' }); miEnq.connect('activate', () => playTracks(tracks, true)); menu.append(miEnq);
+    const miPlay = new Gtk.MenuItem({ label: tracks.length > 1 ? `Play selected (${tracks.length})` : 'Play' }); miPlay.connect('activate', () => playTracks(tracks, false)); menu.append(miPlay);
+    const miEnq = new Gtk.MenuItem({ label: tracks.length > 1 ? `Add selected items to the queue (${tracks.length})` : 'Add to queue' }); miEnq.connect('activate', () => playTracks(tracks, true)); menu.append(miEnq);
     menu.append(new Gtk.SeparatorMenuItem());
-    const miAdd = new Gtk.MenuItem({ label: tracks.length > 1 ? `Добавить выделенные в плейлист (${tracks.length})` : 'Add to playlist' }); miAdd.set_submenu(buildAddToPlaylistSubmenu(tracks)); menu.append(miAdd);
+    const miAdd = new Gtk.MenuItem({ label: tracks.length > 1 ? `Add selected items to the playlist (${tracks.length})` : 'Add to playlist' }); miAdd.set_submenu(buildAddToPlaylistSubmenu(tracks)); menu.append(miAdd);
     menu.append(new Gtk.SeparatorMenuItem());
-    const miDel = new Gtk.MenuItem({ label: tracks.length > 1 ? `Удалить выделенные (${tracks.length})` : 'Удалить из плейлиста' });
+    const miDel = new Gtk.MenuItem({ label: tracks.length > 1 ? `Remove selected items (${tracks.length})` : 'Remove from playlist' });
     miDel.connect('activate', () => {
         const [pmodel, piter] = getSelected(playlistTree.get_selection());
         if (piter) {
@@ -1187,15 +1187,15 @@ playlistTree.connect('button-press-event', (w, event) => {
     const plName = model.get_value(iter, 0); const files = PLAYLIST_DATA.get(plName) || [];
     const idx = model.get_path(iter).get_indices()[0]; const count = model.iter_n_children(null);
     const menu = new Gtk.Menu();
-    const miPlay = new Gtk.MenuItem({ label: `Проиграть (${files.length})` }); miPlay.set_sensitive(files.length > 0); miPlay.connect('activate', () => playTracks(files, false)); menu.append(miPlay);
+    const miPlay = new Gtk.MenuItem({ label: `Play (${files.length})` }); miPlay.set_sensitive(files.length > 0); miPlay.connect('activate', () => playTracks(files, false)); menu.append(miPlay);
     const miEnq = new Gtk.MenuItem({ label: `Add to queue (${files.length})` }); miEnq.set_sensitive(files.length > 0); miEnq.connect('activate', () => playTracks(files, true)); menu.append(miEnq);
-    const miExp = new Gtk.MenuItem({ label: 'Экспорт в M3U8...' }); miExp.set_sensitive(files.length > 0); miExp.connect('activate', () => exportPlaylistToM3U(plName)); menu.append(miExp);
+    const miExp = new Gtk.MenuItem({ label: 'Export to M3U8...' }); miExp.set_sensitive(files.length > 0); miExp.connect('activate', () => exportPlaylistToM3U(plName)); menu.append(miExp);
     menu.append(new Gtk.SeparatorMenuItem());
-    const miRen = new Gtk.MenuItem({ label: 'Переименовать' }); miRen.connect('activate', () => doRenamePlaylist(model, iter)); menu.append(miRen);
-    const miDel = new Gtk.MenuItem({ label: 'Удалить' }); miDel.connect('activate', () => doDeletePlaylist()); menu.append(miDel);
+    const miRen = new Gtk.MenuItem({ label: 'Rename' }); miRen.connect('activate', () => doRenamePlaylist(model, iter)); menu.append(miRen);
+    const miDel = new Gtk.MenuItem({ label: 'Remove' }); miDel.connect('activate', () => doDeletePlaylist()); menu.append(miDel);
     menu.append(new Gtk.SeparatorMenuItem());
-    const miUp = new Gtk.MenuItem({ label: 'Поднять выше' }); miUp.set_sensitive(idx > 0); miUp.connect('activate', () => movePlaylist(-1)); menu.append(miUp);
-    const miDown = new Gtk.MenuItem({ label: 'Опустить ниже' }); miDown.set_sensitive(idx < count - 1); miDown.connect('activate', () => movePlaylist(1)); menu.append(miDown);
+    const miUp = new Gtk.MenuItem({ label: 'Move up' }); miUp.set_sensitive(idx > 0); miUp.connect('activate', () => movePlaylist(-1)); menu.append(miUp);
+    const miDown = new Gtk.MenuItem({ label: 'Move down' }); miDown.set_sensitive(idx < count - 1); miDown.connect('activate', () => movePlaylist(1)); menu.append(miDown);
     popupMenuAtPointer(menu); return true;
 });
 
