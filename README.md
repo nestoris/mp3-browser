@@ -58,7 +58,8 @@ sudo zypper install gjs gtk3
 You can run the scanner and (with an X11 environment like VNC or Termux:X11) the GUI directly on Android:
 ```bash
 pkg update
-pkg install gjs gtk3
+pkg install cjs gtk3
+ln -s $PREFIX/bin/cjs $PREFIX/bin/gjs
 ```
 *(Note: For playback via Termux, install `termux-api` and configure the `Play` command in the settings to use `termux-media-player play %f`).*
 
