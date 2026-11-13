@@ -750,7 +750,7 @@ if (isMain && typeof ARGV !== 'undefined' && ARGV.length > 0) {
                         processedFiles++;
                         // Выводим прогресс каждые 500 файлов и в самом конце
                         if (processedFiles % 500 === 0 || processedFiles === totalFiles) {
-                            print(`  Прочитано ${processedFiles} из ${totalFiles}...`);
+                            print(`  Read ${processedFiles} out of ${totalFiles}...`);
                         }
                     }
                 } else if (node && typeof node === 'object') {
