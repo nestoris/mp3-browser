@@ -2,7 +2,7 @@
 
 A modern, lightweight reimagining of classic file-tree music browsers (like those from the early 2000s). Written in pure **GJS (GNOME JavaScript)** and **GTK3**, this application is designed for speed, minimalism, and seamless integration with remote music libraries.
 
-Developed primarily in Russian, with ongoing efforts to support full localization.
+Developed primarily in [Russian](https://github.com/nestoris/mp3-browser-rus), with ongoing efforts to support full localization.
 
 ![main window](screenshot.png)
 
