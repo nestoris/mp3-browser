@@ -1,0 +1,33 @@
+name: Publish AUR Package
+
+on:
+  push:
+    tags:
+      - 'v*' # Запускать при пуше тегов, начинающихся с "v"
+
+jobs:
+  aur-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Шаг для динамического обновления pkgver в PKGBUILD (опционально)
+      - name: Update pkgver in PKGBUILD
+        run: |
+          # Извлекаем версию из тега (убираем 'v' в начале)
+          VERSION=${GITHUB_REF#refs/tags/v}
+          # Обновляем строку pkgver в PKGBUILD
+          sed -i "s/^pkgver=.*/pkgver=$VERSION/" PKGBUILD
+
+      - name: Publish AUR package
+        uses: KSXGitHub/github-actions-deploy-aur@v4.2.0
+        with:
+          pkgname: mp3-browser
+          pkgbuild: ./PKGBUILD
+          commit_username: ${{ secrets.AUR_USERNAME }}
+          commit_email: ${{ secrets.AUR_EMAIL }}
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: "Update to version ${{ github.ref_name }}"
+          updpkgsums: true # Автоматически обновить контрольные суммы
+          # test: true # Раскомментируйте, чтобы действие проверяло сборку пакета перед пушем (рекомендуется)
