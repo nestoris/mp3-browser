@@ -10,6 +10,7 @@ const GLib      = imports.gi.GLib;
 const Gio       = imports.gi.Gio;
 const ByteArray = imports.byteArray;
 const System    = imports.system;
+const DEFAULT_ID3V1_ENCODING = 'windows-1252';
 
 // ============================================================
 //  DEBUG INFRASTRUCTURE
@@ -787,15 +788,21 @@ let tagCacheSaveTimer = 0;
 function saveFileUtf8(path, content) {
     try {
         let text = content;
-        if (typeof text !== 'string') {
-            text = ByteArray.toString(text); // на случай, если пришёл Uint8Array
+
+        // GJS 1.90+: KeyFile.to_data() возвращает [string, length]
+        if (Array.isArray(text)) {
+            let picked = '';
+            for (const x of text) if (typeof x === 'string') { picked = x; break; }
+            text = picked;
         }
+        if (text instanceof Uint8Array) text = ByteArray.toString(text);
+        if (typeof text !== 'string') text = String(text);
+
         // Принудительно кодируем в UTF-8 через TextEncoder
         if (typeof TextEncoder !== 'undefined') {
             const bytes = new TextEncoder().encode(text);
             GLib.file_set_contents(path, bytes);
         } else {
-            // Запасной вариант для очень старых версий CJS
             GLib.file_set_contents(path, text);
         }
     } catch (e) {
@@ -822,6 +829,11 @@ function checkWriteAccess(dir) {
 function getDefaultAction() {
     try { return keyfile.get_string('Player', 'DefaultAction') || 'play'; }
     catch (e) { return 'play'; }
+}
+
+function getID3v1Encoding() {
+    try { return keyfile.get_string('Player', 'ID3v1Encoding') || DEFAULT_ID3V1_ENCODING; }
+    catch (e) { return DEFAULT_ID3V1_ENCODING; }
 }
 
 function getRelativePath(root, abs) {
@@ -857,7 +869,8 @@ function treeToAbsolute(node, root) {
 
 function scheduleTagCacheSave() {
     if (tagCacheSaveTimer) return;
-    tagCacheSaveTimer = GLib.timeout_add_seconds(5, () => {
+    // В новых версиях GJS требует явного указания приоритета (3 аргумента)
+    tagCacheSaveTimer = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 5, () => {
         tagCacheSaveTimer = 0;
         saveTagCache();
         return GLib.SOURCE_REMOVE;
@@ -1224,6 +1237,7 @@ function scanLogClose() { if (scanLogHandle) { try { scanLogHandle.close(null); 
 function scanLog(msg) { console.log(`[scan] ${msg}`); if (scanLogHandle) { try { scanLogHandle.write_all(`${new Date().toISOString()} ${msg}\n`, null); } catch (e) {} } }
 
 async function startScan(rootPath) {
+    Scanner.setID3v1Encoding(getID3v1Encoding());
     scanGeneration++;
     const gen = scanGeneration; isScanning = true;
     nodesByPath = new Map(); treeStore.clear(); fileListStore.clear(); loadGeneration++;
@@ -1951,6 +1965,24 @@ function openSettingsDialog() {
     addRow('Maximum files in a subdirectory:', 'MaxTrackCount', String(getMaxTrackCount()), 'If there are more files, only the directory itself is shown');
     addRow('Log every N directories:', 'LogEvery', String(getScanLogEvery()), 'For scan.log');
 
+    // Кодировка ID3v1 (только для v1-тегов; ID3v2 не затрагивается)
+    const lblEncoding = new Gtk.Label({ label: 'ID3v1 encoding:', xalign: 0, halign: Gtk.Align.START });
+    const comboEncoding = new Gtk.ComboBoxText();
+    const encodings = [
+        { id: 'windows-1251', label: 'windows-1251 (Russian)' },
+        { id: 'windows-1252', label: 'Windows-1252 (Western Europe)' },
+        { id: 'iso-8859-1',   label: 'ISO-8859-1 / Latin-1' },
+        { id: 'koi8-r',       label: 'KOI8-R (Russian)' },
+        { id: 'utf-8',        label: 'UTF-8' }
+    ];
+    const knownEnc = encodings.reduce((a, e) => (a[e.id] = 1, a), {});
+    encodings.forEach(e => comboEncoding.append(e.id, e.label));
+    const curEnc = getID3v1Encoding();
+    comboEncoding.set_active_id(knownEnc[curEnc] ? curEnc : DEFAULT_ID3V1_ENCODING);
+    grid.attach(lblEncoding, 0, row, 1, 1);
+    grid.attach(comboEncoding, 1, row, 1, 1);
+    row++;
+
     dialog.show_all();
     dialog.connect('response', (d, resp) => {
         if (resp === Gtk.ResponseType.OK) {
@@ -1962,6 +1994,7 @@ function openSettingsDialog() {
             kf.set_boolean('Player', 'MultipleTracksUseM3U', chkM3U.get_active());
             kf.set_integer('Scan', 'MaxTrackCount', parseInt(entries['MaxTrackCount'].get_text(), 10) || 20000);
             kf.set_integer('Scan', 'LogEvery', parseInt(entries['LogEvery'].get_text(), 10) || 500);
+            kf.set_string('Player', 'ID3v1Encoding', comboEncoding.get_active_id() || DEFAULT_ID3V1_ENCODING);
             saveFileUtf8(CONFIG_FILE, kf.to_data());
 
             try { keyfile.load_from_file(CONFIG_FILE, GLib.KeyFileFlags.NONE); } catch (e) {}
@@ -1972,6 +2005,16 @@ function openSettingsDialog() {
             const active = combo.get_active(); combo.remove_all();
             for (const p of ROOTS) combo.append_text(p);
             if (active >= 0 && active < ROOTS.length) combo.set_active(active); else if (ROOTS.length > 0) combo.set_active(0);
+
+            // Применяем новую кодировку к сканеру и сбрасываем кэш тегов,
+            // чтобы ID3v1 перечитались в выбранной кодировке.
+            Scanner.setID3v1Encoding(getID3v1Encoding());
+            DISK_TAG_CACHE = {};
+            if (isRootWritable && tagCachePath) {
+                try { GLib.unlink(tagCachePath); } catch (e) {}
+            }
+            const curIdx = combo.get_active();
+            if (curIdx >= 0) startScan(ROOTS[curIdx]);
             statusbar.push(1, 'Settings saved.');
         }
         d.destroy();
