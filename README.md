@@ -59,7 +59,7 @@ You can run the scanner and (with an X11 environment like VNC or Termux:X11) the
 ```bash
 pkg update
 pkg install cjs gtk3
-ln -s $PREFIX/bin/cjs $PREFIX/bin/gjs
+ln -s $PREFIX/bin/gjs $PREFIX/bin/cjs
 ```
 *(Note: For playback via Termux, install `termux-api` and configure the `Play` command in the settings to use `termux-media-player play %f`).*
 
