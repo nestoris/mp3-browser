@@ -16,10 +16,18 @@ jobs:
       # Шаг для динамического обновления pkgver в PKGBUILD (опционально)
       - name: Update pkgver in PKGBUILD
         run: |
-          # Извлекаем версию из тега (убираем 'v' в начале)
-          VERSION=${GITHUB_REF#refs/tags/v}
-          # Обновляем строку pkgver в PKGBUILD
-          sed -i "s/^pkgver=.*/pkgver=$VERSION/" PKGBUILD
+          # Берем имя тега (или ветки, если запущено вручную)
+          VERSION="${{ github.ref_name }}"
+          # Убираем 'v' в начале, если оно есть (например, v1.0.0 -> 1.0.0)
+          VERSION="${VERSION#v}"
+          
+          # Если запущено вручную на ветке main, VERSION будет "main" - в этом случае просто пропускаем обновление версии
+          if [ "$VERSION" != "main" ] && [ "$VERSION" != "master" ]; then
+            sed -i "s/^pkgver=.*/pkgver=$VERSION/" PKGBUILD
+            echo "Updated pkgver to $VERSION"
+          else
+            echo "Manual run on branch. Keeping existing pkgver in PKGBUILD."
+          fi
 
       - name: Publish AUR package
         uses: KSXGitHub/github-actions-deploy-aur@v4.2.0
