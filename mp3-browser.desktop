@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=MP3-Browser
+Comment=Browse and play MP3 files with ID3 tag support
+Exec=mp3-browser
+Icon=folder-music
+Terminal=false
+Type=Application
+Categories=AudioVideo;Audio;Player;GTK;
+StartupNotify=true
