@@ -4,6 +4,10 @@ A modern, lightweight reimagining of the classic file-tree music browser **MP3-E
 
 Developed primarily in [Russian](https://github.com/nestoris/mp3-browser-rus), with ongoing efforts to support full localization.
 
+![collaboration](screenshot3.png)
+
+![menus](screenshot2.png)
+
 ![main window](screenshot.png)
 
 ---
