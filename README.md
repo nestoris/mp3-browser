@@ -36,7 +36,11 @@ This is not just another music player. It's a powerful **music catalog browser**
     Run with `--debug` (or `-d`) to have every internal step logged to `~/.cache/mp3-browser/debug.log`.
 
 ---
-
+## Arch Linux installation
+```bash
+yay -S mp3-browser
+```
+---
 ## 🛠️ System Dependencies
 
 The application requires GJS (or CJS) and GTK3. No heavy Electron or web-engine wrappers required.
