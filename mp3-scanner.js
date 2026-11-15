@@ -737,6 +737,48 @@ var readTags = function (path) {
  * ============================================================ */
 async function walkDirectory(file, ctx) {
     if (ctx.cancellable && ctx.cancellable.is_cancelled()) throw new Error('cancelled');
+
+    if (ctx.useFoundCache) {
+        const dirPath = file.get_path();
+        // 1. Ищем кэш тегов в текущей папке
+        const tagCacheFile = GLib.build_filenamev([dirPath, 'mp3-tag-cache.json']);
+        if (GLib.file_test(tagCacheFile, GLib.FileTest.EXISTS) && ctx.onTagCacheFound) {
+            try {
+                const [ok, data] = GLib.file_get_contents(tagCacheFile);
+                if (ok) ctx.onTagCacheFound(dirPath, JSON.parse(ByteArray.toString(data)));
+            } catch (e) { log('warning', `Failed to read tag cache: ${e.message}`); }
+        }
+        
+        // 2. Ищем кэш файлов (позволит пропустить перебор папки)
+        const fileCacheFile = GLib.build_filenamev([dirPath, 'mp3-file-cache.json']);
+        if (GLib.file_test(fileCacheFile, GLib.FileTest.EXISTS)) {
+            try {
+                const [ok, data] = GLib.file_get_contents(fileCacheFile);
+                if (ok) {
+                    let tree = JSON.parse(ByteArray.toString(data));
+                    // Разворачиваем обёртку, если она есть
+                    if (tree && typeof tree === 'object' && !Array.isArray(tree)) {
+                        const keys = Object.keys(tree);
+                        if (keys.length === 1 && (keys[0] === GLib.path_get_basename(dirPath) || keys[0] === '.')) {
+                            tree = tree[keys[0]];
+                        }
+                    }
+                    // Переводим относительные пути в абсолютные
+                    function toAbsolute(node) {
+                        if (Array.isArray(node)) return node.map(f => GLib.build_filenamev([dirPath, f]));
+                        if (node && typeof node === 'object') {
+                            const out = {};
+                            for (const k in node) out[k] = toAbsolute(node[k]);
+                            return out;
+                        }
+                        return node;
+                    }
+                    return toAbsolute(tree);
+                }
+            } catch (e) { log('warning', `Failed to load file cache: ${e.message}`); }
+        }
+    }
+
     let enumerator;
     try {
         enumerator = await file.enumerate_children_async(
@@ -744,7 +786,8 @@ async function walkDirectory(file, ctx) {
             Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS, GLib.PRIORITY_DEFAULT, ctx.cancellable);
     } catch (e) {
         if (ctx.cancellable && ctx.cancellable.is_cancelled()) throw e;
-        log('error', `enumerate failed for ${file.get_path()}: ${e.message}`);
+        // Предупреждение вместо ошибки при отсутствии прав доступа
+        log('warning', `enumerate failed for ${file.get_path()}: ${e.message}`);
         return null;
     }
     const mp3s = []; const dirs = []; let batch;
@@ -776,9 +819,9 @@ async function walkDirectory(file, ctx) {
     return mixed;
 }
 
-var scanDirectory = async function(rootPath, onProgress) {
+var scanDirectory = async function(rootPath, onProgress, useFoundCache, onTagCacheFound) {
     const rootFile = Gio.File.new_for_path(rootPath);
-    const ctx = { cancellable: new Gio.Cancellable(), onProgress, fileCount: 0 };
+    const ctx = { cancellable: new Gio.Cancellable(), onProgress, fileCount: 0, useFoundCache, onTagCacheFound };
     return await walkDirectory(rootFile, ctx);
 };
 

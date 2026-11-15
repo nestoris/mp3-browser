@@ -836,6 +836,11 @@ function getID3v1Encoding() {
     catch (e) { return DEFAULT_ID3V1_ENCODING; }
 }
 
+function getUseFoundCache() {
+    try { return keyfile.get_boolean('Scan', 'UseFoundCache'); }
+    catch (e) { return false; }
+}
+
 function getRelativePath(root, abs) {
     if (abs.startsWith(root)) {
         let rel = abs.substring(root.length);
@@ -1321,6 +1326,66 @@ async function startScan(rootPath) {
     progress.set_no_show_all(false); progress.show(); progress.pulse();
     statusbar.push(1, loadedFromCache ? `Loaded from cache: ${activeRootPath}` : `Scanning directories: ${activeRootPath}`);
 
+    const useFound = getUseFoundCache();
+
+    // Поиск кэша в родительских каталогах (вверх до корня)
+    if (useFound && !treeData) {
+        let current = activeRootPath;
+        while (true) {
+            const parent = GLib.path_get_dirname(current);
+            if (parent === current) break; // Достигли корня
+
+            const pFileCache = GLib.build_filenamev([parent, 'mp3-file-cache.json']);
+            if (!treeData && GLib.file_test(pFileCache, GLib.FileTest.EXISTS)) {
+                try {
+                    const [ok, data] = GLib.file_get_contents(pFileCache);
+                    if (ok) {
+                        let pTree = JSON.parse(ByteArray.toString(data));
+                        if (pTree && typeof pTree === 'object' && !Array.isArray(pTree)) {
+                            const keys = Object.keys(pTree);
+                            if (keys.length === 1 && (keys[0] === GLib.path_get_basename(parent) || keys[0] === '.')) {
+                                pTree = pTree[keys[0]];
+                            }
+                        }
+                        const rel = getRelativePath(parent, activeRootPath);
+                        let node = pTree;
+                        if (rel) {
+                            for (const part of rel.split('/')) {
+                                if (!part) continue;
+                                if (node && typeof node === 'object' && !Array.isArray(node)) node = node[part];
+                                else { node = null; break; }
+                            }
+                        }
+                        if (node) {
+                            treeData = treeToAbsolute(node, activeRootPath);
+                            loadedFromCache = true;
+                            statusbar.push(1, `Used cache from parent directory: ${parent}`);
+                        }
+                    }
+                } catch (e) {
+                    console.warn(`Warning: unable to access cache in ${parent}: ${e.message}`);
+                }
+            }
+            
+            const pTagCache = GLib.build_filenamev([parent, 'mp3-tag-cache.json']);
+            if (GLib.file_test(pTagCache, GLib.FileTest.EXISTS)) {
+                try {
+                    const [ok, data] = GLib.file_get_contents(pTagCache);
+                    if (ok) {
+                        const raw = JSON.parse(ByteArray.toString(data));
+                        for (const abs in raw) {
+                            const r = getRelativePath(activeRootPath, abs);
+                            DISK_TAG_CACHE[r] = raw[abs];
+                        }
+                    }
+                } catch (e) {
+                    console.warn(`Warning: unable to access tag cache in ${parent}: ${e.message}`);
+                }
+            }
+            current = parent;
+        }
+    }
+
     try {
         if (!treeData) {
             const startTime = Date.now(); const logEvery = getScanLogEvery();
@@ -1330,6 +1395,13 @@ async function startScan(rootPath) {
                     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
                     progress.pulse(); statusbar.push(1, `Scanning: ${count} files, ${elapsed}s`);
                     scanLog(`PROGRESS: ${count} files, ${elapsed}s`);
+                }
+            }, useFound, (cacheDir, rawTags) => {
+                // Коллбэк от сканера: нашли mp3-tag-cache.json в подкаталоге
+                for (const rel in rawTags) {
+                    const abs = GLib.build_filenamev([cacheDir, rel]);
+                    const rootRel = getRelativePath(activeRootPath, abs);
+                    DISK_TAG_CACHE[rootRel] = rawTags[rel];
                 }
             });
             scanLog(`DONE: ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
@@ -1954,7 +2026,8 @@ function openSettingsDialog() {
 
     const chkM3U = new Gtk.CheckButton({ label: 'Use M3U for multiple selection', active: getMultipleM3U() });
     grid.attach(chkM3U, 0, row, 2, 1); row++;
-        const lblAction = new Gtk.Label({ label: 'Action for Enter / double-click:', xalign: 0, halign: Gtk.Align.START });
+
+    const lblAction = new Gtk.Label({ label: 'Action for Enter / double-click:', xalign: 0, halign: Gtk.Align.START });
     const comboAction = new Gtk.ComboBoxText();
     comboAction.append_text('Play');
     comboAction.append_text('Add to queue');
@@ -1962,6 +2035,7 @@ function openSettingsDialog() {
     grid.attach(lblAction, 0, row, 1, 1);
     grid.attach(comboAction, 1, row, 1, 1);
     row++;
+
     addRow('Maximum files in a subdirectory:', 'MaxTrackCount', String(getMaxTrackCount()), 'If there are more files, only the directory itself is shown');
     addRow('Log every N directories:', 'LogEvery', String(getScanLogEvery()), 'For scan.log');
 
@@ -1983,6 +2057,11 @@ function openSettingsDialog() {
     grid.attach(comboEncoding, 1, row, 1, 1);
     row++;
 
+    // Use discovered cache
+    const chkFoundCache = new Gtk.CheckButton({ label: 'Use discovered cache', active: getUseFoundCache() });
+    chkFoundCache.set_tooltip_text('During scanning, the program will use any cache files (mp3-file-cache.json and mp3-tag-cache.json) found in subdirectories or parent directories (searching upwards to the root). A lack of access permissions for parent directories will only trigger a warning. CLI commands (tags, cacheforce) ignore this setting.');
+    grid.attach(chkFoundCache, 0, row, 2, 1); row++;
+
     dialog.show_all();
     dialog.connect('response', (d, resp) => {
         if (resp === Gtk.ResponseType.OK) {
@@ -1995,6 +2074,7 @@ function openSettingsDialog() {
             kf.set_integer('Scan', 'MaxTrackCount', parseInt(entries['MaxTrackCount'].get_text(), 10) || 20000);
             kf.set_integer('Scan', 'LogEvery', parseInt(entries['LogEvery'].get_text(), 10) || 500);
             kf.set_string('Player', 'ID3v1Encoding', comboEncoding.get_active_id() || DEFAULT_ID3V1_ENCODING);
+            kf.set_boolean('Scan', 'UseFoundCache', chkFoundCache.get_active());
             saveFileUtf8(CONFIG_FILE, kf.to_data());
 
             try { keyfile.load_from_file(CONFIG_FILE, GLib.KeyFileFlags.NONE); } catch (e) {}
